@@ -1,10 +1,19 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-  dangerouslyAllowBrowser: true,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+  
+  if (!apiKey) {
+    console.warn('OpenAI API key not found. AI features will use fallback responses.');
+    return null;
+  }
+
+  return new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    dangerouslyAllowBrowser: true,
+  });
+}
 
 export async function generateAdCopy(
   imageDescription: string,
@@ -49,6 +58,17 @@ Return as JSON array with format:
   "callToAction": "string"
 }]`;
 
+  const openai = getOpenAIClient();
+  
+  if (!openai) {
+    // Return fallback ad copy when API key is not available
+    return [{
+      headline: `Amazing ${productName || 'Product'} Alert! 🔥`,
+      description: `Don't miss out on this incredible ${productName || 'product'}! Perfect for ${targetAudience || 'everyone'}.`,
+      callToAction: 'Shop Now'
+    }];
+  }
+
   try {
     const response = await openai.chat.completions.create({
       model: 'google/gemini-2.0-flash-001',
@@ -73,6 +93,12 @@ Return as JSON array with format:
 }
 
 export async function analyzeImage(imageFile: File): Promise<string> {
+  const openai = getOpenAIClient();
+  
+  if (!openai) {
+    return 'Product image uploaded - AI analysis not available';
+  }
+
   try {
     // Convert file to base64
     const base64 = await fileToBase64(imageFile);
